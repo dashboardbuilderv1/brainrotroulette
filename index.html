@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fruits vs Brainrots: Real AI Roulette</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 antialiased">
 
@@ -19,13 +19,15 @@
 
         <hr class="border-slate-800">
 
-        <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-purple-500 rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 bg-slate-950/50">
-            <input type="file" id="fileInput" accept="image/jpeg, image/png" class="hidden">
-            <div id="uploadPrompt" class="space-y-2">
-                <p class="text-sm font-medium text-slate-300">Sleep je selfie hiernaartoe of <span class="text-purple-400 underline">klik om te zoeken</span></p>
+        <div id="dropzone" class="relative border-2 border-dashed border-slate-700 hover:border-purple-500 rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 bg-slate-950/50">
+            
+            <input type="file" id="fileInput" accept="image/jpeg, image/png" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50">
+            
+            <div id="uploadPrompt" class="space-y-2 pointer-events-none">
+                <p class="text-sm font-medium text-slate-300">Tik hier om een selfie te kiezen of te maken</p>
                 <p class="text-xs text-slate-500">Alleen JPEG of PNG</p>
             </div>
-            <p id="fileSelectedText" class="text-sm font-bold text-green-400 hidden">✓ Foto geladen!</p>
+            <p id="fileSelectedText" class="text-sm font-bold text-green-400 hidden pointer-events-none">✓ Foto geladen!</p>
         </div>
 
         <button id="mutateBtn" disabled class="w-full py-4 bg-slate-800 text-slate-500 font-bold rounded-xl cursor-not-allowed transition-all duration-200 uppercase tracking-wider shadow-lg">
@@ -58,4 +60,130 @@
     </main>
 
     <script>
-        // Je API Key is succesvol ingeb
+        const FAL_AI_KEY = "cb8f4d20-0274-45bd-95c7-341eb93ca6cd:cc04c8f7436cf802bdce9b723d18ee5b"; 
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const mutateBtn = document.getElementById('mutateBtn');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        const fileSelectedText = document.getElementById('fileSelectedText');
+        const loadingState = document.getElementById('loadingState');
+        const rouletteTicker = document.getElementById('rouletteTicker');
+        const resultState = document.getElementById('resultState');
+        const resultName = document.getElementById('resultName');
+        const resultRarity = document.getElementById('resultRarity');
+        const resultImg = document.getElementById('resultImg');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let base64Image = null;
+
+        const BRAINROT_POOL = [
+            { name: "Strawberry Elephant", rarity: "MYTHIC (5%)", color: "#3b82f6", weight: 5, prompt: "A 3D Fortnite cosmetic render of a hybrid between the user's face and a giant surreal blue strawberry elephant monster, vibrant gaming asset, UEFN style, highly recognizable human features blended into the meme creature." },
+            { name: "Don Tictacco", rarity: "EPIC (15%)", color: "#a855f7", weight: 15, prompt: "A 3D Fortnite style render of a hybrid between the user's face and an aggressive, animated Tic-Tac mint container wearing mafia sunglasses, UEFN style, face recognizable." },
+            { name: "Absolute Cinema", rarity: "RARE (30%)", color: "#eab308", weight: 30, prompt: "The user's face integrated perfectly into a giant, dramatic movie theater screen character holding popcorn, high contrast meme style, energetic lighting, Fortnite cosmetic aesthetic." },
+            { name: "Controllerino", rarity: "COMMON (50%)", color: "#22c55e", weight: 50, prompt: "A crazy gaming controller monster creature merged seamlessly with the user's face, neon thumbsticks, playful Fortnite aesthetic, human features highly preserved." }
+        ];
+
+        // Luister naar de bestandswijziging wanneer de gebruiker een foto kiest
+        fileInput.addEventListener('change', (e) => { 
+            if (e.target.files.length > 0) {
+                convertFile(e.target.files[0]);
+            }
+        });
+
+        function convertFile(file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                base64Image = reader.result;
+                uploadPrompt.classList.add('hidden');
+                fileSelectedText.classList.remove('hidden');
+                dropzone.classList.add('border-green-500', 'bg-green-950/10');
+                
+                mutateBtn.disabled = false;
+                mutateBtn.innerText = "Rot My Face! 🎲";
+                mutateBtn.className = "w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl cursor-pointer uppercase tracking-wider shadow-lg";
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function getRandomBrainrot() {
+            let totalWeight = BRAINROT_POOL.reduce((sum, item) => sum + item.weight, 0);
+            let randomNum = Math.random() * totalWeight;
+            for (let i = 0; i < BRAINROT_POOL.length; i++) {
+                if (randomNum < BRAINROT_POOL[i].weight) return BRAINROT_POOL[i];
+                randomNum -= BRAINROT_POOL[i].weight;
+            }
+            return BRAINROT_POOL[BRAINROT_POOL.length - 1];
+        }
+
+        mutateBtn.addEventListener('click', async () => {
+            if (!base64Image) return;
+
+            dropzone.classList.add('hidden');
+            mutateBtn.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+
+            let tickerInterval = setInterval(() => {
+                rouletteTicker.innerText = BRAINROT_POOL[Math.floor(Math.random() * BRAINROT_POOL.length)].name;
+            }, 80);
+
+            const rolled = getRandomBrainrot();
+
+            try {
+                const response = await fetch("https://queue.fal.run/fal-ai/ip-adapter-faceID", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Key ${FAL_AI_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        prompt: rolled.prompt,
+                        negative_prompt: "ugly, deformed, blurry, bad anatomy, low quality",
+                        image_url: base64Image,
+                        id_strength: 0.7,
+                        n_steps: 30,
+                        guidance_scale: 7.5
+                    })
+                });
+
+                if (!response.ok) throw new Error("AI Server weigert verbinding. Controleer je API Key.");
+                
+                const queueData = await response.json();
+                
+                let resultData = null;
+                while (true) {
+                    const statusCheck = await fetch(`https://queue.fal.run/fal-ai/ip-adapter-faceID/requests/${queueData.request_id}`, {
+                        headers: { "Authorization": `Key ${FAL_AI_KEY}` }
+                    });
+                    const status = await statusCheck.json();
+                    if (status.status === "COMPLETED") {
+                        resultData = status;
+                        break;
+                    }
+                    if (status.status === "FAILED") throw new Error("AI generatie mislukt.");
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+
+                clearInterval(tickerInterval);
+                loadingState.classList.add('hidden');
+
+                resultName.innerText = rolled.name;
+                resultName.style.color = rolled.color;
+                resultRarity.innerText = rolled.rarity;
+                resultRarity.style.backgroundColor = rolled.color;
+                
+                const finalImgUrl = resultData.images[0].url;
+                resultImg.src = finalImgUrl;
+                downloadBtn.href = finalImgUrl;
+
+                resultState.classList.remove('hidden');
+
+            } catch (error) {
+                clearInterval(tickerInterval);
+                alert("Fout: " + error.message);
+                window.location.reload();
+            }
+        });
+    </script>
+</body>
+</html>
